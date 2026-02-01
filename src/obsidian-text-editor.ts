@@ -1,5 +1,5 @@
-import { Point, Range } from '@tgrosinger/md-advanced-tables';
-import { App, Editor, TFile } from 'obsidian';
+import { Point, Range } from 'md-advanced-tables';
+import { App, Editor, MarkdownView, TFile } from 'obsidian';
 
 /**
  * ObsidianTextEditor is an implementation of the ITextEditor interface from
@@ -119,5 +119,12 @@ export class ObsidianTextEditor {
     });
     */
     func();
+  };
+
+  public withPreservedScroll = async <T>(fn: () => Promise<T>): Promise<T> => {
+    const scrollInfo = this.editor.getScrollInfo();
+    const result = await fn();
+    this.editor.scrollTo(scrollInfo.left, scrollInfo.top)
+    return result;
   };
 }

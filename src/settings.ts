@@ -2,7 +2,7 @@ import {
   FormatType,
   Options,
   optionsWithDefaults,
-} from '@tgrosinger/md-advanced-tables';
+} from 'md-advanced-tables';
 
 export const defaultSettings: Partial<ISettings> = {
   formatType: FormatType.NORMAL,

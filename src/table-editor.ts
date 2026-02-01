@@ -4,13 +4,14 @@ import {
   Alignment,
   SortOrder,
   TableEditor as MTEEditor,
-} from '@tgrosinger/md-advanced-tables';
+} from 'md-advanced-tables';
 import { App, Editor, Modal, Notice, TFile } from 'obsidian';
 
 export class TableEditor {
   private readonly app: App;
   private readonly settings: TableEditorPluginSettings;
   private readonly mte: MTEEditor;
+  private readonly ote: ObsidianTextEditor;
 
   constructor(
     app: App,
@@ -21,8 +22,8 @@ export class TableEditor {
     this.app = app;
     this.settings = settings;
 
-    const ote = new ObsidianTextEditor(app, file, editor);
-    this.mte = new MTEEditor(ote);
+    this.ote = new ObsidianTextEditor(app, file, editor);
+    this.mte = new MTEEditor(this.ote);
   }
 
   public readonly cursorIsInTableFormula = (): boolean =>
@@ -112,10 +113,12 @@ export class TableEditor {
   };
 
   public readonly evaluateFormulas = (): void => {
-    const err = this.mte.evaluateFormulas(this.settings.asOptions());
-    if (err) {
-      new Notice(err.message);
-    }
+    this.ote.withPreservedScroll(async () => {
+      const err = await this.mte.evaluateFormulas(this.settings.asOptions())
+      if (err) {
+        new Notice(err.message);
+      }
+    });
   };
 
   public readonly exportCSVModal = (): void => {
@@ -133,7 +136,7 @@ class CSVModal extends Modal {
     this.settings = settings;
   }
 
-  public onOpen(): void {
+  public async onOpen(): Promise<void> {
     const { contentEl } = this;
     const div = contentEl.createDiv({
       cls: 'advanced-tables-csv-export',
@@ -144,7 +147,7 @@ class CSVModal extends Modal {
         readonly: true,
       },
     });
-    ta.value = this.mte.exportCSV(true, this.settings.asOptions());
+    ta.value = await this.mte.exportCSV(true, this.settings.asOptions());
     ta.onClickEvent(() => ta.select());
 
     const lb = div.createEl('label');
@@ -155,8 +158,8 @@ class CSVModal extends Modal {
       },
     });
     lb.createSpan().setText('Include table headers');
-    cb.onClickEvent(() => {
-      ta.value = this.mte.exportCSV(cb.checked, this.settings.asOptions());
+    cb.onClickEvent(async () => {
+      ta.value = await this.mte.exportCSV(cb.checked, this.settings.asOptions());
     });
   }
 

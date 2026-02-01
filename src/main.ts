@@ -7,7 +7,7 @@ import {
 import { TableEditor } from './table-editor';
 import { Extension, Prec } from '@codemirror/state';
 import { KeyBinding, keymap } from '@codemirror/view';
-import { FormatType } from '@tgrosinger/md-advanced-tables';
+import { FormatType } from 'md-advanced-tables';
 import {
   App,
   Editor,

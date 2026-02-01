@@ -31,6 +31,6 @@
     "typescript": "5.3.3"
   },
   "dependencies": {
-    "@tgrosinger/md-advanced-tables": "3.11.0"
+    "md-advanced-tables": "github:dsynkd/md-advanced-tables"
   }
 }
