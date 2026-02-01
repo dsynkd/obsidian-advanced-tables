@@ -20,6 +20,7 @@ import {
 
 export default class TableEditorPlugin extends Plugin {
   public settings: TableEditorPluginSettings;
+  private tableObservers: Map<HTMLTableElement, MutationObserver> = new Map();
 
   public async onload(): Promise<void> {
     console.log('loading markdown-table-editor plugin');
@@ -28,7 +29,11 @@ export default class TableEditorPlugin extends Plugin {
 
     this.registerView(
       TableControlsViewType,
-      (leaf) => new TableControlsView(leaf, this.settings),
+      (leaf) => new TableControlsView(
+        leaf,
+        this.settings,
+        () => this.toggleRowNumbers(),
+      ),
     );
 
     addIcons();
@@ -41,6 +46,23 @@ export default class TableEditorPlugin extends Plugin {
 
     // CM6 editor extension for remapping keys
     this.registerEditorExtension(this.makeEditorExtension());
+
+    this.registerMarkdownPostProcessor((element) => {
+      if (!this.settings.showRowNumbers) {
+        return;
+      }
+      this.addRowNumbersToElement(element);
+    });
+
+    // Watch for table structure changes and reapply row numbers
+    this.registerInterval(
+      window.setInterval(() => {
+        if (!this.settings.showRowNumbers) {
+          return;
+        }
+        this.reapplyRowNumbersIfNeeded();
+      }, 500),
+    );
 
     this.addCommand({
       id: 'next-row',
@@ -255,6 +277,15 @@ export default class TableEditorPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: 'show-row-numbers',
+      name: 'Show Row Numbers',
+      icon: 'rowNumbers',
+      callback: () => {
+        this.toggleRowNumbers();
+      },
+    });
+
+    this.addCommand({
       id: 'table-control-bar',
       name: 'Open table controls toolbar',
       hotkeys: [
@@ -400,6 +431,140 @@ export default class TableEditorPlugin extends Plugin {
       this.app.workspace.getLeavesOfType(TableControlsViewType)[0],
     );
   };
+
+  private readonly toggleRowNumbers = (): void => {
+    this.settings.showRowNumbers = !this.settings.showRowNumbers;
+    void this.saveData(this.settings);
+    this.refreshRowNumberRendering();
+    new Notice(
+      `Advanced Tables: Row numbers ${this.settings.showRowNumbers ? 'enabled' : 'disabled'}.`,
+    );
+  };
+
+  private readonly refreshRowNumberRendering = (): void => {
+    const tables = Array.from(
+      document.querySelectorAll('table'),
+    ) as HTMLTableElement[];
+
+    tables.forEach((table) => {
+      if (!this.isMarkdownTable(table)) {
+        return;
+      }
+
+      if (this.settings.showRowNumbers) {
+        this.addRowNumbersToTable(table);
+      } else {
+        this.removeRowNumbersFromTable(table);
+      }
+    });
+  };
+
+  private readonly reapplyRowNumbersIfNeeded = (): void => {
+    if (!this.settings.showRowNumbers) {
+      return;
+    }
+
+    const tables = Array.from(
+      document.querySelectorAll('table'),
+    ) as HTMLTableElement[];
+
+    tables.forEach((table) => {
+      if (!this.isMarkdownTable(table)) {
+        return;
+      }
+
+      // Check if row numbers are missing
+      const firstRow = table.querySelector('tr');
+      if (
+        firstRow &&
+        !firstRow.querySelector('.advanced-tables-row-number-cell')
+      ) {
+        // Row numbers are missing, reapply them
+        this.addRowNumbersToTable(table);
+      }
+    });
+  };
+
+  private readonly addRowNumbersToElement = (element: HTMLElement): void => {
+    const tables = Array.from(element.querySelectorAll('table')) as HTMLTableElement[];
+    tables.forEach((table) => this.addRowNumbersToTable(table));
+  };
+
+  private readonly addRowNumbersToTable = (table: HTMLTableElement): void => {
+    if (!this.isMarkdownTable(table)) {
+      return;
+    }
+
+    // Remove any existing row numbers first to ensure fresh numbering
+    const existingRowNumbers = Array.from(
+      table.querySelectorAll('.advanced-tables-row-number-cell'),
+    );
+    existingRowNumbers.forEach((cell) => cell.remove());
+
+    const headRow = table.querySelector('thead tr') as HTMLTableRowElement | null;
+    if (headRow) {
+      this.insertRowNumberCell(headRow, '#', true);
+    }
+
+    let bodyRows = Array.from(table.querySelectorAll('tbody tr')) as HTMLTableRowElement[];
+    if (bodyRows.length === 0) {
+      const allRows = Array.from(table.querySelectorAll('tr')) as HTMLTableRowElement[];
+      if (!headRow && allRows.length > 0 && allRows[0].querySelector('th')) {
+        this.insertRowNumberCell(allRows[0], '#', true);
+        bodyRows = allRows.slice(1);
+      } else {
+        bodyRows = allRows.filter((row) => row !== headRow);
+      }
+    }
+
+    bodyRows.forEach((row, index) => {
+      this.insertRowNumberCell(row, String(index + 1));
+    });
+
+    table.classList.add('advanced-tables-row-numbered');
+  };
+
+  private readonly insertRowNumberCell = (
+    row: HTMLTableRowElement,
+    text: string,
+    isHeader = false,
+  ): void => {
+    const firstCell = row.firstElementChild;
+    if (firstCell && firstCell.classList.contains('advanced-tables-row-number-cell')) {
+      return;
+    }
+
+    const cell = document.createElement(isHeader ? 'th' : 'td');
+    cell.textContent = text;
+    cell.classList.add('advanced-tables-row-number-cell');
+    if (isHeader) {
+      cell.classList.add('advanced-tables-row-number-header');
+      cell.setAttribute('scope', 'col');
+    }
+    cell.setAttribute('contenteditable', 'false');
+    cell.tabIndex = -1;
+    row.insertBefore(cell, row.firstElementChild);
+  };
+
+  private readonly removeRowNumbersFromTable = (table: HTMLTableElement): void => {
+    const rows = Array.from(table.querySelectorAll('tr')) as HTMLTableRowElement[];
+    rows.forEach((row) => {
+      Array.from(row.children).forEach((child) => {
+        if (child.classList.contains('advanced-tables-row-number-cell')) {
+          child.remove();
+        }
+      });
+    });
+
+    table.classList.remove('advanced-tables-row-numbered');
+  };
+
+  private readonly isMarkdownTable = (table: HTMLTableElement): boolean =>
+    Boolean(
+      table.closest('.markdown-preview-view') ||
+      table.closest('.markdown-source-view') ||
+      table.closest('.markdown-rendered'),
+    );
 
   private async loadSettings(): Promise<void> {
     const settingsOptions = Object.assign(
