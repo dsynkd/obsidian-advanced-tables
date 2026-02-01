@@ -13,10 +13,16 @@ export const TableControlsViewType = 'advanced-tables-toolbar';
 
 export class TableControlsView extends ItemView {
   private readonly settings: TableEditorPluginSettings;
+  private readonly onToggleRowNumbers: () => void;
 
-  constructor(leaf: WorkspaceLeaf, settings: TableEditorPluginSettings) {
+  constructor(
+    leaf: WorkspaceLeaf,
+    settings: TableEditorPluginSettings,
+    onToggleRowNumbers: () => void,
+  ) {
     super(leaf);
     this.settings = settings;
+    this.onToggleRowNumbers = onToggleRowNumbers;
   }
 
   public getViewType(): string {
@@ -109,6 +115,16 @@ export class TableControlsView extends ItemView {
     this.drawBtn(rowFiveBtns, 'csv', 'export as csv', (te) =>
       te.exportCSVModal(),
     );
+    this.drawActionBtn(
+      rowFiveBtns,
+      'rowNumbers',
+      'show row numbers',
+      () => {
+        this.onToggleRowNumbers();
+        this.draw();
+      },
+      this.settings.showRowNumbers,
+    );
     this.drawBtn(rowFiveBtns, 'help', 'help', () =>
       window.open(
         'https://github.com/tgrosinger/advanced-tables-obsidian/blob/main/docs/help.md',
@@ -134,6 +150,21 @@ export class TableControlsView extends ItemView {
 
     const button = parent.createDiv({ cls: 'advanced-tables-button nav-action-button', title });
     button.onClickEvent(() => this.withTE(fn, cursorCheck));
+    button.appendChild(Element(icons[iconName]));
+  };
+
+  private readonly drawActionBtn = (
+    parent: HTMLDivElement,
+    iconName: string,
+    title: string,
+    fn: () => void,
+    isActive = false,
+  ): void => {
+    const button = parent.createDiv({ cls: 'advanced-tables-button nav-action-button', title });
+    if (isActive) {
+      button.addClass('is-active');
+    }
+    button.onClickEvent(() => fn());
     button.appendChild(Element(icons[iconName]));
   };
 

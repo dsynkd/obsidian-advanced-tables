@@ -9,6 +9,7 @@ export const defaultSettings: Partial<ISettings> = {
   showRibbonIcon: true,
   bindEnter: true,
   bindTab: true,
+  showRowNumbers: false,
 };
 
 export interface ISettings {
@@ -16,6 +17,7 @@ export interface ISettings {
   showRibbonIcon: boolean;
   bindEnter: boolean;
   bindTab: boolean;
+  showRowNumbers: boolean;
 }
 
 export class TableEditorPluginSettings implements ISettings {
@@ -24,6 +26,7 @@ export class TableEditorPluginSettings implements ISettings {
 
   public bindEnter: boolean;
   public bindTab: boolean;
+  public showRowNumbers: boolean;
 
   constructor(loadedData: Partial<ISettings>) {
     const allFields = { ...defaultSettings, ...loadedData };
@@ -31,6 +34,7 @@ export class TableEditorPluginSettings implements ISettings {
     this.showRibbonIcon = allFields.showRibbonIcon;
     this.bindEnter = allFields.bindEnter;
     this.bindTab = allFields.bindTab;
+    this.showRowNumbers = allFields.showRowNumbers;
   }
 
   public asOptions(): Options {
